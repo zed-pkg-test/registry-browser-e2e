@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "upstream": "zed-pkg/zed-web-server.rs",
+  "url": "https://github.com/zed-pkg/zed-web-server.rs.git",
+  "path": "vendor/upstream/zed-web-server.rs",
+  "commit": "eb2fabc7a6c22333dcb89e5a629bab7679d76af0"
+}

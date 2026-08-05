@@ -1,0 +1,1 @@
+{"name":"generated-browser-acceptance","private":true,"type":"module","scripts":{"test:browser":"playwright test"},"devDependencies":{"@playwright/test":"^1.48.0"}}

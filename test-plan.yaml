@@ -1,0 +1,51 @@
+schema_version: 1
+managed_by: github-test-org-factory/1.0.0
+production_org: zed-pkg
+test_org: zed-pkg-test
+repository: registry-browser-e2e
+kind: browser
+readiness: ready
+objectives:
+- Verify package search, release review, install instructions, accessibility, and cache coherence across the supported
+  happy-path states and canonical fixtures.
+- Verify package search, release review, install instructions, accessibility, and cache coherence under retries, interruption,
+  concurrency, offline operation, or partial failure.
+- Verify package search, release review, install instructions, accessibility, and cache coherence preserves authorization,
+  idempotency, integrity, observability, and actionable failure classification.
+always_on_checks:
+- Validate test-plan and dependency metadata.
+- Validate generated fixture and workflow syntax.
+- Classify missing upstreams or credentials separately from product regressions.
+schedule_utc: 17 5 * * *
+expensive: true
+required_infrastructure:
+- Playwright browsers
+- registry service
+cases:
+- id: TC-001
+  title: Verify package search, release review, install instructions, accessibility, and cache coherence across the supported
+    happy-path states and canonical fixtures.
+  tier: scheduled-live
+  status: planned
+  evidence:
+  - junit
+  - readiness JSON
+  - workflow artifacts
+- id: TC-002
+  title: Verify package search, release review, install instructions, accessibility, and cache coherence under retries,
+    interruption, concurrency, offline operation, or partial failure.
+  tier: scheduled-live
+  status: planned
+  evidence:
+  - junit
+  - readiness JSON
+  - workflow artifacts
+- id: TC-003
+  title: Verify package search, release review, install instructions, accessibility, and cache coherence preserves authorization,
+    idempotency, integrity, observability, and actionable failure classification.
+  tier: scheduled-live
+  status: planned
+  evidence:
+  - junit
+  - readiness JSON
+  - workflow artifacts
