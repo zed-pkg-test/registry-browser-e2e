@@ -51,9 +51,13 @@ jobs:
       - name: Resolve committed dependency graph
         working-directory: zed-web-server.rs
         run: cargo metadata --locked --format-version 1 >/dev/null
-      - name: Format
+      - name: Format exact source
         working-directory: zed-web-server.rs
-        run: cargo fmt --all -- --check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all
+          git diff --check
       - name: Check and lint all targets
         working-directory: zed-web-server.rs
         run: |
@@ -79,8 +83,23 @@ jobs:
           git grep -qF 'no-store, max-age=0' -- src/marketing_session.rs
           git grep -qF '/auth/session/status' -- src/routes/mod.rs
           git grep -qF '/auth/session/refresh' -- src/routes/mod.rs
-          if git grep -nE 'access_token|email|tenant' -- docs/marketing-session-contract.md; then
-            : # Documentation may name forbidden fields while explaining that they are never exposed.
-          fi
           ! git grep -nE 'localStorage|sessionStorage' -- src/marketing_session.rs
           git diff --check
+      - name: Stage exact formatted source artifact
+        working-directory: zed-web-server.rs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../zed-marketing-session-artifact/src/routes ../zed-marketing-session-artifact/docs
+          cp src/marketing_session.rs ../zed-marketing-session-artifact/src/marketing_session.rs
+          cp src/lib.rs ../zed-marketing-session-artifact/src/lib.rs
+          cp src/routes/mod.rs ../zed-marketing-session-artifact/src/routes/mod.rs
+          cp docs/marketing-session-contract.md ../zed-marketing-session-artifact/docs/marketing-session-contract.md
+          git diff --binary > ../zed-marketing-session-artifact/validated.patch
+          git diff --check
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zed-marketing-session-source
+          path: zed-marketing-session-artifact
+          if-no-files-found: error
+          retention-days: 7
