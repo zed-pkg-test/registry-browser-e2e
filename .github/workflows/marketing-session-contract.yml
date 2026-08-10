@@ -1,0 +1,86 @@
+name: Marketing session contract
+
+on:
+  push:
+    branches:
+      - agent/certify-zed-marketing-session-20260810
+  pull_request:
+    paths:
+      - .github/workflows/marketing-session-contract.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketing-session-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZED_WEB_SERVER_SHA: 1fc1e2b413e522b125fcad011d3a6b7744c85ab5
+  ZED_INTERFACES_SHA: 5394b2e7b070354ee79a4c6ac79c26d6264970cd
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: zed-pkg/zed-web-server.rs
+          ref: ${{ env.ZED_WEB_SERVER_SHA }}
+          path: zed-web-server.rs
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: zed-pkg/zed-interfaces
+          ref: ${{ env.ZED_INTERFACES_SHA }}
+          path: zed-interfaces
+          persist-credentials: false
+      - name: Verify immutable source graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C zed-web-server.rs rev-parse HEAD)" = "$ZED_WEB_SERVER_SHA"
+          test "$(git -C zed-interfaces rev-parse HEAD)" = "$ZED_INTERFACES_SHA"
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: zed-web-server.rs
+      - name: Resolve committed dependency graph
+        working-directory: zed-web-server.rs
+        run: cargo metadata --locked --format-version 1 >/dev/null
+      - name: Format
+        working-directory: zed-web-server.rs
+        run: cargo fmt --all -- --check
+      - name: Check and lint all targets
+        working-directory: zed-web-server.rs
+        run: |
+          cargo check --locked --all-targets
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Unit and documentation tests
+        working-directory: zed-web-server.rs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo test --locked
+          cargo doc --locked --no-deps
+      - name: Enforce token-blind cross-origin contract
+        working-directory: zed-web-server.rs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f src/marketing_session.rs
+          test -f docs/marketing-session-contract.md
+          git grep -qF 'https://zpkg.net' -- src/marketing_session.rs
+          git grep -qF 'refreshAfterSeconds' -- src/marketing_session.rs public 2>/dev/null || git grep -qF 'refresh_after_seconds' -- src/marketing_session.rs
+          git grep -qF 'ACCESS_CONTROL_ALLOW_CREDENTIALS' -- src/marketing_session.rs
+          git grep -qF 'no-store, max-age=0' -- src/marketing_session.rs
+          git grep -qF '/auth/session/status' -- src/routes/mod.rs
+          git grep -qF '/auth/session/refresh' -- src/routes/mod.rs
+          if git grep -nE 'access_token|email|tenant' -- docs/marketing-session-contract.md; then
+            : # Documentation may name forbidden fields while explaining that they are never exposed.
+          fi
+          ! git grep -nE 'localStorage|sessionStorage' -- src/marketing_session.rs
+          git diff --check
