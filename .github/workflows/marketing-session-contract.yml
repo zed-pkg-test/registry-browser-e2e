@@ -16,8 +16,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ZED_WEB_SERVER_SHA: 22201cc108823bd1c27602f7b97a6d932354882d
-  ZED_INTERFACES_SHA: 5394b2e7b070354ee79a4c6ac79c26d6264970cd
+  # Exact reviewed head of zed-pkg/zed-web-server.rs#23.
+  ZED_WEB_SERVER_SHA: a72f7f41fdefd815db59a27b7de8e76d11c4c5b0
+  # Exact interface revision locked by that server head.
+  ZED_INTERFACES_SHA: b795c92126202cd1e4bd2365eb58d8cefa2095c3
 
 jobs:
   exact-head:
@@ -75,13 +77,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f src/marketing_session.rs
+          test -f src/routes/session_status.rs
           test -f docs/marketing-session-contract.md
-          git grep -qF 'https://zpkg.net' -- src/marketing_session.rs
-          git grep -qF 'refresh_after_seconds' -- src/marketing_session.rs
-          git grep -qF 'ACCESS_CONTROL_ALLOW_CREDENTIALS' -- src/marketing_session.rs
-          git grep -qF 'no-store, max-age=0' -- src/marketing_session.rs
+          git grep -qF 'const MARKETING_ORIGIN: &str = "https://zpkg.net";' -- src/routes/session_status.rs
+          git grep -qF 'check_after_seconds' -- src/routes/session_status.rs
+          git grep -qF 'access-control-allow-credentials' -- src/routes/session_status.rs
+          git grep -qF 'no-store, max-age=0' -- src/routes/session_status.rs
+          git grep -qF 'cross-origin-resource-policy' -- src/routes/session_status.rs
+          git grep -qF 'StatusCode::SERVICE_UNAVAILABLE' -- src/routes/session_status.rs
+          git grep -qF '["authenticated", "check_after_seconds", "dashboard_url"]' -- src/routes/session_status.rs
+          git grep -qF 'missing_or_different_origins_get_no_auth_disclosure_or_cors_grant' -- src/routes/session_status.rs
+          git grep -qF 'preflight_is_exact_and_rejects_custom_headers' -- src/routes/session_status.rs
           git grep -qF '/auth/session/status' -- src/routes/mod.rs
-          git grep -qF '/auth/session/refresh' -- src/routes/mod.rs
-          ! git grep -nE 'localStorage|sessionStorage' -- src/marketing_session.rs
+          git grep -qF 'get(session_status::get).options(session_status::options)' -- src/routes/mod.rs
+          ! git grep -nF '/auth/session/refresh' -- src
+          ! git grep -nE 'localStorage|sessionStorage' -- src/routes/session_status.rs
+          test -z "$(git status --porcelain)"
           git diff --check
