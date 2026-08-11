@@ -20,7 +20,8 @@ env:
   # Exact reviewed head merged by sonus-auris/sonus-auris-web-server.rs#9.
   SONUS_SERVER_SHA: 0fcfb57616908603f6d1efb615ebcbfced8ed963
   SONUS_INTERFACES_SHA: 6a4984ea19bb31cd1af68a67c397efa9a8ce2d3a
-  SONUS_SITE_SHA: 76b2494a8122a3d9f4ecb3cf239f6801c01205df
+  # Exact green head of sonus-auris/sonus-auris-site.web#26.
+  SONUS_SITE_SHA: 8b5fab2798effeb613602e5988549b7e0029ea49
 
 jobs:
   marketing-site:
