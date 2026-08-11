@@ -17,7 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SONUS_SERVER_SHA: b6c6e225618b093036e118216cfcfb8112149521
+  # Exact reviewed head merged by sonus-auris/sonus-auris-web-server.rs#9.
+  SONUS_SERVER_SHA: 0fcfb57616908603f6d1efb615ebcbfced8ed963
   SONUS_INTERFACES_SHA: 6a4984ea19bb31cd1af68a67c397efa9a8ce2d3a
   SONUS_SITE_SHA: 76b2494a8122a3d9f4ecb3cf239f6801c01205df
 
@@ -51,6 +52,33 @@ jobs:
         with:
           path: validator
           persist-credentials: false
+      - name: Fail closed unless pinned private sources are readable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          verify_commit_access() {
+            local repository="$1"
+            local sha="$2"
+            local status
+            status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${repository}/git/commits/${sha}")"
+            if test "$status" != 200; then
+              printf '::error title=Private source unavailable::%s@%s is not readable with this workflow token (HTTP %s). Certification stops before checkout; grant read access or run this workflow in an authorized Sonus repository.\n' \
+                "$repository" "$sha" "$status"
+              return 1
+            fi
+          }
+
+          failures=0
+          verify_commit_access sonus-auris/sonus-auris-web-server.rs "$SONUS_SERVER_SHA" || failures=1
+          verify_commit_access sonus-auris/sonus-auris-interfaces "$SONUS_INTERFACES_SHA" || failures=1
+          exit "$failures"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: sonus-auris/sonus-auris-web-server.rs
@@ -69,10 +97,17 @@ jobs:
           set -euo pipefail
           test "$(git -C sonus-auris-web-server.rs rev-parse HEAD)" = "$SONUS_SERVER_SHA"
           test "$(git -C sonus-auris-interfaces rev-parse HEAD)" = "$SONUS_INTERFACES_SHA"
-      - name: Apply deterministic session patch
+      - name: Verify merged session source against reviewed fixtures
         working-directory: sonus-auris-web-server.rs
         shell: bash
-        run: python3 ../validator/.validation/sonus/app_patch.py .
+        run: |
+          set -euo pipefail
+          cmp src/app/marketing_session.rs ../validator/.validation/sonus/marketing_session.rs
+          cmp docs/marketing-session-contract.md ../validator/.validation/sonus/marketing-session-contract.md
+          git grep -qF '.route("/auth/session/status", get(marketing_session::status))' -- src/app.rs
+          git grep -qF '.route("/auth/session/refresh", post(marketing_session::refresh))' -- src/app.rs
+          git grep -qF 'marketing_session::is_marketing_refresh' -- src/app.rs
+          test -z "$(git status --porcelain)"
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           components: rustfmt, clippy
@@ -84,7 +119,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo fmt --all
+          cargo fmt --all -- --check
+          test -z "$(git status --porcelain)"
           git diff --check
           ! grep -R -n -E '^(<<<<<<< .+|=======|>>>>>>> .+)$' --exclude-dir=.git .
           cargo metadata --locked --format-version 1 >/dev/null
@@ -100,11 +136,15 @@ jobs:
           cp src/app.rs ../sonus-session-artifact/src/app.rs
           cp src/app/marketing_session.rs ../sonus-session-artifact/src/app/marketing_session.rs
           cp docs/marketing-session-contract.md ../sonus-session-artifact/docs/marketing-session-contract.md
-          git diff --binary > ../sonus-session-artifact/validated.patch
+          cp Cargo.lock ../sonus-session-artifact/Cargo.lock
+          printf 'SONUS_SERVER_SHA=%s\nSONUS_INTERFACES_SHA=%s\n' \
+            "$SONUS_SERVER_SHA" "$SONUS_INTERFACES_SHA" \
+            > ../sonus-session-artifact/source-pins.env
+          (cd ../sonus-session-artifact && sha256sum Cargo.lock src/app.rs src/app/marketing_session.rs docs/marketing-session-contract.md > SHA256SUMS)
           git diff --check
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: sonus-session-patch
+          name: sonus-session-source
           path: sonus-session-artifact
           if-no-files-found: error
           retention-days: 7
