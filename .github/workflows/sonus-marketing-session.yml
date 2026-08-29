@@ -123,7 +123,10 @@ jobs:
           cargo fmt --all -- --check
           test -z "$(git status --porcelain)"
           git diff --check
-          ! grep -R -n -E '^(<<<<<<< .+|=======|>>>>>>> .+)$' --exclude-dir=.git .
+          if grep -R -n -E '^(<<<<<<< .+|=======|>>>>>>> .+)$' --exclude-dir=.git .; then
+            echo 'source contains unresolved conflict markers' >&2
+            exit 1
+          fi
           cargo metadata --locked --format-version 1 >/dev/null
           cargo check --locked --all-targets
           cargo clippy --locked --all-targets -- -D warnings

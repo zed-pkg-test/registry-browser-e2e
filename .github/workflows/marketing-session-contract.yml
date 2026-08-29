@@ -90,7 +90,13 @@ jobs:
           git grep -qF 'preflight_is_exact_and_rejects_custom_headers' -- src/routes/session_status.rs
           git grep -qF '/auth/session/status' -- src/routes/mod.rs
           git grep -qF 'get(session_status::get).options(session_status::options)' -- src/routes/mod.rs
-          ! git grep -nF '/auth/session/refresh' -- src
-          ! git grep -nE 'localStorage|sessionStorage' -- src/routes/session_status.rs
+          if git grep -nF '/auth/session/refresh' -- src; then
+            echo 'marketing session contract must not expose a refresh endpoint' >&2
+            exit 1
+          fi
+          if git grep -nE 'localStorage|sessionStorage' -- src/routes/session_status.rs; then
+            echo 'marketing session contract must remain browser-storage blind' >&2
+            exit 1
+          fi
           test -z "$(git status --porcelain)"
           git diff --check
