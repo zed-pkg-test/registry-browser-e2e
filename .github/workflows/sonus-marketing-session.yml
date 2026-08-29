@@ -3,6 +3,7 @@ name: Sonus marketing session contract
 on:
   push:
     branches:
+      - main
       - agent/certify-sonus-marketing-session-20260810
   pull_request:
     paths:

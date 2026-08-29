@@ -3,6 +3,7 @@ name: Marketing session contract
 on:
   push:
     branches:
+      - main
       - agent/certify-zed-marketing-session-20260810
   pull_request:
     paths:
