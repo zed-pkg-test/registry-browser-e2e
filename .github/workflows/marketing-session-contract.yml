@@ -1,0 +1,96 @@
+name: Marketing session contract
+
+on:
+  push:
+    branches:
+      - agent/certify-zed-marketing-session-20260810
+  pull_request:
+    paths:
+      - .github/workflows/marketing-session-contract.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketing-session-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Exact reviewed head of zed-pkg/zed-web-server.rs#23.
+  ZED_WEB_SERVER_SHA: a72f7f41fdefd815db59a27b7de8e76d11c4c5b0
+  # Exact interface revision locked by that server head.
+  ZED_INTERFACES_SHA: b795c92126202cd1e4bd2365eb58d8cefa2095c3
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: zed-pkg/zed-web-server.rs
+          ref: ${{ env.ZED_WEB_SERVER_SHA }}
+          path: zed-web-server.rs
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: zed-pkg/zed-interfaces
+          ref: ${{ env.ZED_INTERFACES_SHA }}
+          path: zed-interfaces
+          persist-credentials: false
+      - name: Verify immutable source graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C zed-web-server.rs rev-parse HEAD)" = "$ZED_WEB_SERVER_SHA"
+          test "$(git -C zed-interfaces rev-parse HEAD)" = "$ZED_INTERFACES_SHA"
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: zed-web-server.rs
+      - name: Resolve committed dependency graph
+        working-directory: zed-web-server.rs
+        run: cargo metadata --locked --format-version 1 >/dev/null
+      - name: Check committed formatting
+        working-directory: zed-web-server.rs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          test -z "$(git status --porcelain)"
+      - name: Check and lint all targets
+        working-directory: zed-web-server.rs
+        run: |
+          cargo check --locked --all-targets
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Unit and documentation tests
+        working-directory: zed-web-server.rs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo test --locked
+          cargo doc --locked --no-deps
+      - name: Enforce token-blind cross-origin contract
+        working-directory: zed-web-server.rs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f src/routes/session_status.rs
+          test -f docs/marketing-session-contract.md
+          git grep -qF 'const MARKETING_ORIGIN: &str = "https://zpkg.net";' -- src/routes/session_status.rs
+          git grep -qF 'check_after_seconds' -- src/routes/session_status.rs
+          git grep -qF 'access-control-allow-credentials' -- src/routes/session_status.rs
+          git grep -qF 'no-store, max-age=0' -- src/routes/session_status.rs
+          git grep -qF 'cross-origin-resource-policy' -- src/routes/session_status.rs
+          git grep -qF 'StatusCode::SERVICE_UNAVAILABLE' -- src/routes/session_status.rs
+          git grep -qF '["authenticated", "check_after_seconds", "dashboard_url"]' -- src/routes/session_status.rs
+          git grep -qF 'missing_or_different_origins_get_no_auth_disclosure_or_cors_grant' -- src/routes/session_status.rs
+          git grep -qF 'preflight_is_exact_and_rejects_custom_headers' -- src/routes/session_status.rs
+          git grep -qF '/auth/session/status' -- src/routes/mod.rs
+          git grep -qF 'get(session_status::get).options(session_status::options)' -- src/routes/mod.rs
+          ! git grep -nF '/auth/session/refresh' -- src
+          ! git grep -nE 'localStorage|sessionStorage' -- src/routes/session_status.rs
+          test -z "$(git status --porcelain)"
+          git diff --check
