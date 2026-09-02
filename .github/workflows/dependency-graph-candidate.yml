@@ -18,6 +18,7 @@ concurrency:
 
 env:
   ZED_WEB_CANDIDATE: 4515fa83ef7062c61707bdcdfb2f67e4d7f92fac
+  ZED_WEB_SOURCE_DIR: ${{ github.workspace }}/zed-web-server.rs
 
 jobs:
   browser-geometry:
@@ -83,8 +84,6 @@ jobs:
         run: npx playwright test tests/browser/dependency-graph-popover.spec.ts --list
       - name: Run independent browser certification
         working-directory: registry-browser-e2e
-        env:
-          ZED_WEB_SOURCE_DIR: ${{ github.workspace }}/zed-web-server.rs
         run: >-
           npx playwright test
           tests/browser/dependency-graph-popover.spec.ts
