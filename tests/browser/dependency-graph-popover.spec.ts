@@ -133,6 +133,21 @@ async function installFixture(page: Page) {
       await fulfillGraph(route);
       return;
     }
+    if (url.pathname.startsWith("/partials/dependency-graph/")) {
+      // The independent fixture does not own the Rust fragment renderer, but
+      // the real component legitimately requests those same-origin fragments.
+      // Return inert successful markup so browser errors cannot obscure the
+      // geometry and pointer boundary under test.
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "cache-control": "no-store",
+          "content-type": "text/html; charset=utf-8",
+        },
+        body: '<span data-fixture-fragment="true"></span>',
+      });
+      return;
+    }
     const asset = ASSETS.get(url.pathname);
     if (asset) {
       await route.fulfill({
@@ -150,8 +165,12 @@ async function installFixture(page: Page) {
   const response = await page.goto(PAGE_URL);
   expect(response?.status()).toBe(200);
   const workspace = page.locator("zed-dependency-graph");
-  await expect(workspace).toHaveAttribute("data-ready", "true");
-  await expect(workspace.locator(".dg-node").first()).toBeVisible({ timeout: 15_000 });
+  // The public data-ready attribute is a transient connection guard, not a
+  // load-completion contract. Wait on the actual rendered semantic graph.
+  await expect(workspace.locator(".dg-node")).toHaveCount(3, { timeout: 15_000 });
+  await expect(workspace.locator(".dg-node").first()).toBeVisible();
+  await expect(workspace.locator('[data-metric="nodes"]')).toHaveText("3");
+  await expect(workspace.locator('[data-metric="edges"]')).toHaveText("2");
   return workspace;
 }
 
