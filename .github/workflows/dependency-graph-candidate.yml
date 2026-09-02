@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ZED_WEB_CANDIDATE: 4515fa83ef7062c61707bdcdfb2f67e4d7f92fac
+  ZED_WEB_CANDIDATE: b37e5ea06180e1bdb2290b58c654fee968af757e
   ZED_WEB_SOURCE_DIR: ${{ github.workspace }}/zed-web-server.rs
 
 jobs:
