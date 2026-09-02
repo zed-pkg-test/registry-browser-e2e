@@ -49,8 +49,26 @@ jobs:
           test -f zed-web-server.rs/static/dependency-graph-insights.js
           test -f zed-web-server.rs/static/dependency-graph-insights.css
           test -f zed-web-server.rs/static/htmx.min.js
-          ! grep -REn 'fetch\(["'"']https?://|new Function\(|eval\(' \
-            zed-web-server.rs/static/dependency-graph-insights*.js
+          python3 - <<'PY'
+          from pathlib import Path
+
+          forbidden = (
+              'fetch("http',
+              "fetch('http",
+              'new Function(',
+              'eval(',
+          )
+          files = sorted(
+              Path('zed-web-server.rs/static').glob('dependency-graph-insights*.js')
+          )
+          if not files:
+              raise SystemExit('no dependency-graph insight modules found')
+          for path in files:
+              source = path.read_text()
+              for token in forbidden:
+                  if token in source:
+                      raise SystemExit(f'{path} contains forbidden runtime token {token!r}')
+          PY
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
