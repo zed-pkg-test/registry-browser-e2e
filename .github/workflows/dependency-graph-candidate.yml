@@ -1,0 +1,100 @@
+name: Zed dependency-graph candidate browser geometry
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/dependency-graph-candidate.yml
+      - package.json
+      - playwright.config.ts
+      - tests/browser/dependency-graph-popover.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zed-dependency-graph-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZED_WEB_CANDIDATE: ad0207f376a3de341b3f282e616b29e24825baec
+  ZED_WEB_SOURCE_DIR: ${{ github.workspace }}/zed-web-server.rs
+
+jobs:
+  browser-geometry:
+    name: Chromium, Firefox, and WebKit pointer-safe graph popovers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout independent test harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: registry-browser-e2e
+          persist-credentials: false
+      - name: Checkout immutable Zed web merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: zed-pkg/zed-web-server.rs
+          ref: ${{ env.ZED_WEB_CANDIDATE }}
+          path: zed-web-server.rs
+          persist-credentials: false
+      - name: Verify exact composition and required assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C registry-browser-e2e rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C zed-web-server.rs rev-parse HEAD)" = "$ZED_WEB_CANDIDATE"
+          test -f zed-web-server.rs/assets/dependency-graph.js
+          test -f zed-web-server.rs/assets/dependency-graph.css
+          test -f zed-web-server.rs/static/dependency-graph-insights-core.js
+          test -f zed-web-server.rs/static/dependency-graph-insights.js
+          test -f zed-web-server.rs/static/dependency-graph-insights.css
+          test -f zed-web-server.rs/static/htmx.min.js
+          python3 - <<'PY'
+          from pathlib import Path
+
+          forbidden = (
+              'fetch("http',
+              "fetch('http",
+              'new Function(',
+              'eval(',
+          )
+          files = sorted(
+              Path('zed-web-server.rs/static').glob('dependency-graph-insights*.js')
+          )
+          if not files:
+              raise SystemExit('no dependency-graph insight modules found')
+          for path in files:
+              source = path.read_text()
+              for token in forbidden:
+                  if token in source:
+                      raise SystemExit(f'{path} contains forbidden runtime token {token!r}')
+          PY
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Install exact browser harness dependencies
+        working-directory: registry-browser-e2e
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Install browser engines
+        working-directory: registry-browser-e2e
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Type-check browser test discovery
+        working-directory: registry-browser-e2e
+        run: npx playwright test tests/browser/dependency-graph-popover.spec.ts --list
+      - name: Run independent browser certification
+        working-directory: registry-browser-e2e
+        run: >-
+          npx playwright test
+          tests/browser/dependency-graph-popover.spec.ts
+          --workers=1
+      - name: Upload retained failure evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zed-dependency-graph-popover-${{ github.run_id }}
+          path: |
+            registry-browser-e2e/playwright-report
+            registry-browser-e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 14
