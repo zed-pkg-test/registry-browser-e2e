@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ZED_WEB_CANDIDATE: b37e5ea06180e1bdb2290b58c654fee968af757e
+  ZED_WEB_CANDIDATE: ad0207f376a3de341b3f282e616b29e24825baec
   ZED_WEB_SOURCE_DIR: ${{ github.workspace }}/zed-web-server.rs
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         with:
           path: registry-browser-e2e
           persist-credentials: false
-      - name: Checkout immutable Zed web candidate
+      - name: Checkout immutable Zed web merge
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: zed-pkg/zed-web-server.rs
