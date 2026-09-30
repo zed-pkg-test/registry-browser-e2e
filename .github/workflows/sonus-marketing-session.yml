@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: sonus-auris/sonus-auris-site.web
           ref: ${{ env.SONUS_SITE_SHA }}
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: validator
           persist-credentials: false
@@ -81,13 +81,13 @@ jobs:
           verify_commit_access sonus-auris/sonus-auris-web-server.rs "$SONUS_SERVER_SHA" || failures=1
           verify_commit_access sonus-auris/sonus-auris-interfaces "$SONUS_INTERFACES_SHA" || failures=1
           exit "$failures"
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: sonus-auris/sonus-auris-web-server.rs
           ref: ${{ env.SONUS_SERVER_SHA }}
           path: sonus-auris-web-server.rs
           persist-credentials: false
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: sonus-auris/sonus-auris-interfaces
           ref: ${{ env.SONUS_INTERFACES_SHA }}
